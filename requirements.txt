@@ -1,0 +1,7 @@
+Flask==3.1.0           
+Celery==5.4.0         
+redis==5.2.0               
+requests==2.32.3        
+smtplib                   
+twilio==9.3.7
+python-dotenv==1.0.1          
