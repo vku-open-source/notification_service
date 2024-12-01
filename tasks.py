@@ -7,20 +7,25 @@ from vonage import Auth, Vonage
 from vonage_sms import SmsMessage, SmsResponse
 import logging
 from helper import normalize_phone_number
+from os import environ
 from dotenv import load_dotenv
+from tenacity import retry, stop_after_attempt, wait_exponential
 
+# Load environment variables
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", 587))  
-SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+# SMTP Configuration
+SMTP_HOST = environ.get("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(environ.get("SMTP_PORT", 587))
+SMTP_USERNAME = environ.get("SMTP_USERNAME")
+SMTP_PASSWORD = environ.get("SMTP_PASSWORD")
 
-VONAGE_API_KEY = os.getenv("VONAGE_API_KEY")
-VONAGE_API_SECRET = os.getenv("VONAGE_API_SECRET")
-VONAGE_FROM_NUMBER = os.getenv("VONAGE_FROM_NUMBER")
+# Vonage Configuration
+VONAGE_API_KEY = environ.get("VONAGE_API_KEY")
+VONAGE_API_SECRET = environ.get("VONAGE_API_SECRET")
+VONAGE_FROM_NUMBER = environ.get("VONAGE_FROM_NUMBER")
 
 if not all([VONAGE_API_KEY, VONAGE_API_SECRET]):
     logger.error("Vonage credentials are not properly configured!")
@@ -30,7 +35,7 @@ EMAIL_TEMPLATE = EMAIL_TEMPLATE = """
 <html>
 <head>
     <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: ##ff0000 ; }}
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #ff0000 ; }}
         .header {{ background-color: #4CAF50; color: white; padding: 10px; text-align: center; }}
         .content {{ margin: 20px 0; }}
     </style>
@@ -50,49 +55,58 @@ EMAIL_TEMPLATE = EMAIL_TEMPLATE = """
 
 SMS_TEMPLATE = "{title}: {content}"
 
-celery = Celery('tasks', broker='redis://localhost:6379/0')
+# Celery Configuration
+CELERY_BROKER_URL = environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+celery = Celery('tasks', broker=CELERY_BROKER_URL)
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+def send_email_with_retry(smtp_connection, msg):
+    smtp_connection.send_message(msg)
+
+def prepare_email_message(user, title, content):
+    msg = MIMEMultipart()
+    msg['From'] = SMTP_USERNAME
+    msg['To'] = user['email']
+    msg['Subject'] = title
+    
+    html_content = EMAIL_TEMPLATE.format(
+        title=title,
+        recipient_name=user.get('email', 'Valued Customer'),
+        content=content
+    )
+    
+    msg.attach(MIMEText(html_content, 'html'))
+    return msg
 
 @celery.task
-def send_bulk_email_task(users, title, content):
+def send_bulk_email_task(recipients, title, content):
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as smtp:
             smtp.starttls()
             smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
-
-            for user in users:
-                email = user.get("email")
-                recipient_name = user.get("username", "Valued User")
-                if email:
-                    # Prepare email
-                    msg = MIMEMultipart("alternative")
-                    msg["Subject"] = title
-                    msg["From"] = SMTP_USERNAME
-                    msg["To"] = email
-                    html_content = EMAIL_TEMPLATE.format(
-                        title=title, content=content, recipient_name=recipient_name
-                    )
-                    msg.attach(MIMEText(html_content, "html"))
-
-                    # Send email
-                    smtp.sendmail(SMTP_USERNAME, email, msg.as_string())
-                    print(f"Email sent to {email}")
+            
+            for recipient in recipients:
+                if recipient.get("email"):
+                    msg = prepare_email_message(recipient, title, content)
+                    send_email_with_retry(smtp, msg)
+                    
     except Exception as e:
-        print(f"Failed to send bulk emails: {e}")
+        logger.error(f"Email sending failed: {str(e)}")
+        raise
 
 @celery.task(bind=True, max_retries=3)
-def send_bulk_sms_task(self, users, title, content):
+def send_bulk_sms_task(self, recipients, title, content):
     try:
         client = Vonage(Auth(
             api_key=VONAGE_API_KEY,
             api_secret=VONAGE_API_SECRET
         ))
 
-        for user in users:
-            phone = user.get('phone')
+        for recipient in recipients:
+            phone = recipient.get('phone')
             if not phone:
                 continue
                 
-            # Sử dụng hàm từ helper.py
             normalized_phone = normalize_phone_number(phone)
 
             try:
@@ -105,16 +119,16 @@ def send_bulk_sms_task(self, users, title, content):
                 response: SmsResponse = client.sms.send(message)
                 
                 if response.messages[0].status == "0":
-                    print(f"SMS sent successfully to {normalized_phone}")
+                    logger.info(f"SMS sent successfully to {normalized_phone}")
                 else:
-                    print(f"Failed to send SMS to {normalized_phone}: {response.messages[0].error_text}")
+                    logger.error(f"Failed to send SMS to {normalized_phone}: {response.messages[0].error_text}")
                     
             except Exception as ve:
-                print(f"Error sending SMS to {normalized_phone}: {str(ve)}")
+                logger.error(f"Error sending SMS to {normalized_phone}: {str(ve)}")
                 raise self.retry(exc=ve, countdown=60)
 
     except Exception as e:
-        print(f"Failed to send bulk SMS: {str(e)}")
+        logger.error(f"Failed to send bulk SMS: {str(e)}")
         raise self.retry(exc=e, countdown=300)
 
 
