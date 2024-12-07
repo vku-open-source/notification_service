@@ -22,7 +22,7 @@ A scalable notification service built with Flask and Celery for handling bulk em
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/vku-open-source/notification_service.git
 cd lcdp_service
 ```
 
