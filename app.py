@@ -1,3 +1,9 @@
+"""
+Copyright (c) VKU.OneLove.
+This source code is licensed under the Apache-2.0 license found in the
+LICENSE file in the root directory of this source tree.
+"""
+
 from flask import Flask, request, jsonify
 from prometheus_client import generate_latest
 from celery_app import make_celery
