@@ -6,13 +6,6 @@ A scalable notification service built with Flask and Celery for handling bulk em
 
 - Bulk email notifications using SMTP
 - SMS notifications via Vonage API
-- Rate limiting for API endpoints
-- Request validation
-- Prometheus metrics
-- Health check endpoints
-- CORS support
-- Logging system
-- Docker support
 
 ## Prerequisites
 
@@ -128,19 +121,6 @@ Response:
   }
 }
 ```
-
-### Health Check
-
-```
-GET /health
-```
-
-### Metrics
-
-```
-GET /metrics
-```
-
 ## Validation Rules
 
 - `type`: Must be "emergency_alert"
@@ -194,26 +174,6 @@ lcdp_service/
 ├── Dockerfile         # Docker configuration
 └── docker-compose.yml # Docker Compose configuration
 ```
-
-## Monitoring
-
-- Application logs are stored in `logs/app.log`
-- Prometheus metrics available at `/metrics`
-- Health check endpoint at `/health`
-
-## Rate Limiting
-
-- API endpoints are rate-limited to prevent abuse
-- Default limits: 200 requests per day, 50 per hour
-- Notification endpoint: 10 requests per minute
-
-## Security
-
-- CORS protection
-- Security headers
-- Rate limiting
-- Input validation
-
 ## Contributing
 
 1. Fork the repository
