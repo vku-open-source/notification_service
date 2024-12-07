@@ -121,6 +121,7 @@ Response:
   }
 }
 ```
+
 ## Validation Rules
 
 - `type`: Must be "emergency_alert"
@@ -174,6 +175,7 @@ lcdp_service/
 ├── Dockerfile         # Docker configuration
 └── docker-compose.yml # Docker Compose configuration
 ```
+
 ## Contributing
 
 1. Fork the repository
