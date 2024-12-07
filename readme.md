@@ -184,17 +184,4 @@ lcdp_service/
 
 ## License
 
-[Your License Here]
-
-```
-
-This README provides:
-- Clear installation instructions for both Docker and local development
-- API documentation
-- Environment variable configuration
-- Project structure overview
-- Monitoring and security features
-- Contributing guidelines
-
-You may want to customize the sections based on your specific needs and add any additional information that might be relevant for your users.
-```
+This project is licensed under the terms of the [Apache V2.0](LICENSE)
