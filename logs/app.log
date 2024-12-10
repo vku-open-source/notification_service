@@ -19,3 +19,5 @@
 2024-12-01 19:04:51,648 INFO: Enqueued email task for 2 recipients [in C:\Users\thien\Documents\WorkSpace\Opensource\strapi\lcdp_service\app.py:82]
 2024-12-01 19:04:51,675 INFO: Received payload: {'title': 'thong bao khan c2p1111', 'content': 'thiennguye1333n ', 'type': 'emergency_alert', 'recipients': [{'email': 'nguyenhoanthien1312@gmail.com', 'phone': '356496976', 'notification_channels': {'email': True, 'sms': False}}, {'email': 'nguyenhoanthien@gmail.com', 'phone': '962043095', 'notification_channels': {'email': True, 'sms': False}}]} [in C:\Users\thien\Documents\WorkSpace\Opensource\strapi\lcdp_service\app.py:66]
 2024-12-01 19:04:51,686 INFO: Enqueued email task for 2 recipients [in C:\Users\thien\Documents\WorkSpace\Opensource\strapi\lcdp_service\app.py:82]
+2024-12-10 13:20:03,542 INFO: Received payload: {'type': 'emergency_alert', 'title': 'Alert Title', 'content': 'Alert content', 'recipients': [{'email': 'tttt54141@gmail.com', 'phone': '+1 579-227-3465', 'notification_channels': {'email': False, 'sms': True}}]} [in /app/app.py:72]
+2024-12-10 13:20:03,566 INFO: Enqueued SMS task for 1 recipients [in /app/app.py:93]

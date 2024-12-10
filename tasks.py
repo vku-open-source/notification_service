@@ -9,13 +9,12 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from celery import Celery
 import os
-from vonage import Auth, Vonage
-from vonage_sms import SmsMessage, SmsResponse
 import logging
 from helper import normalize_phone_number
 from os import environ
 from dotenv import load_dotenv
 from tenacity import retry, stop_after_attempt, wait_exponential
+from twilio.rest import Client
 
 # Load environment variables
 load_dotenv()
@@ -28,12 +27,14 @@ SMTP_PORT = int(environ.get("SMTP_PORT", 587))
 SMTP_USERNAME = environ.get("SMTP_USERNAME")
 SMTP_PASSWORD = environ.get("SMTP_PASSWORD")
 
-# Vonage Configuration
-VONAGE_API_KEY = environ.get("VONAGE_API_KEY")
-VONAGE_API_SECRET = environ.get("VONAGE_API_SECRET")
-VONAGE_FROM_NUMBER = environ.get("VONAGE_FROM_NUMBER")
+# Twilio Configuration
+TWILIO_ACCOUNT_SID = environ.get("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = environ.get("TWILIO_AUTH_TOKEN")
+TWILIO_FROM_NUMBER = environ.get("TWILIO_FROM_NUMBER")
 
-if not all([VONAGE_API_KEY, VONAGE_API_SECRET]):
+
+
+if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN]):
     logger.error("Vonage credentials are not properly configured!")
 
 EMAIL_TEMPLATE = EMAIL_TEMPLATE = """
@@ -103,38 +104,26 @@ def send_bulk_email_task(recipients, title, content):
 @celery.task(bind=True, max_retries=3)
 def send_bulk_sms_task(self, recipients, title, content):
     try:
-        client = Vonage(Auth(
-            api_key=VONAGE_API_KEY,
-            api_secret=VONAGE_API_SECRET
-        ))
+        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
         for recipient in recipients:
             phone = recipient.get('phone')
             if not phone:
                 continue
-                
+            
             normalized_phone = normalize_phone_number(phone)
 
             try:
-                message = SmsMessage(
-                    to=normalized_phone,
-                    from_=VONAGE_FROM_NUMBER,
-                    text=SMS_TEMPLATE.format(title=title, content=content)
+                message = client.messages.create(
+                    body=SMS_TEMPLATE.format(title=title, content=content),
+                    from_=TWILIO_FROM_NUMBER,
+                    to=normalized_phone
                 )
-
-                response: SmsResponse = client.sms.send(message)
-                
-                if response.messages[0].status == "0":
-                    logger.info(f"SMS sent successfully to {normalized_phone}")
-                else:
-                    logger.error(f"Failed to send SMS to {normalized_phone}: {response.messages[0].error_text}")
-                    
-            except Exception as ve:
-                logger.error(f"Error sending SMS to {normalized_phone}: {str(ve)}")
-                raise self.retry(exc=ve, countdown=60)
+                logger.info(f"SMS sent successfully to {normalized_phone}, SID: {message.sid}")
+            except Exception as te:
+                logger.error(f"Error sending SMS to {normalized_phone}: {str(te)}")
+                raise self.retry(exc=te, countdown=60)
 
     except Exception as e:
         logger.error(f"Failed to send bulk SMS: {str(e)}")
         raise self.retry(exc=e, countdown=300)
-
-
